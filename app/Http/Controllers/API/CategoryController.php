@@ -38,7 +38,7 @@ class CategoryController extends APIBaseController
         $input = $request->all();
         $validator = \Validator::make($input, [
             'title' => 'required|String|unique:categories,title',
-            'parent_id' => 'required|Int|exists:categories,id'
+            'parent_id' => 'Int|exists:categories,id'
             //'description' => 'required'
         ]);
 
@@ -76,7 +76,7 @@ class CategoryController extends APIBaseController
 
         $validator = \Validator::make($input, [
             'title' => 'required|String|unique:categories,title,' . $id,
-            'parent_id' => 'required|Int|exists:categories,id'
+            'parent_id' => 'Int|exists:categories,id'
         ]);
 
         if ($validator->fails()) {
