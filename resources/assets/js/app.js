@@ -28,7 +28,8 @@ class App {
             item: "/d5-api/items"
         },
         this.modal,
-        this.forms
+        this.forms,
+        this.etags = {}
     }
 
     getTrees() {
@@ -64,6 +65,42 @@ class App {
             headers: {
                 'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
             }
+        });
+
+        $(document).ajaxComplete(function(ev, jqXHR, settings) {
+            let etag = jqXHR.getResponseHeader('ETag');
+            let prefix = '';
+            let type;
+
+            if (settings.type === 'GET') {
+                if (settings.url.includes('categories')) {
+                    prefix = 'Category';
+                    type = prefix.toLowerCase();
+                } else if (settings.url.includes('items')) {
+                    prefix = 'Item';
+                    type = prefix.toLowerCase();
+                }
+
+                if (!app.etags.hasOwnProperty(prefix)) {
+                    app.etags[prefix] = {}; 
+                }
+
+                if (app.etags[prefix].hasOwnProperty(settings.url)) {
+                    if (app.etags[prefix][settings.url] !== null && etag !== null) {
+                        if (app.etags[prefix][settings.url] !== etag) {
+                            if (!settings.url.includes('all')) {
+                                if (prefix !== '') {
+                                    toastr.info(prefix + ' has changed');
+                                    app.etags[prefix] = {};
+                                }
+                            }
+                        }
+                    }
+                }
+
+                app.etags[prefix][settings.url] = etag;
+            }
+
         });
 
         this.initTrees();
@@ -202,12 +239,10 @@ class TreeUI {
     }
 
     reloadQuery() {
-        console.log('reload query 1');
         return {};
     }
 
     reload() {
-        console.log('reload 1');
         let query = this.reloadQuery();
         this.tree.reload(query);
     }
@@ -230,14 +265,16 @@ class TreeUI {
                 }
             }
             let lastQueryUrl = treeUI.getLastQueryUrl();
-            if (treeUI.getETag() !== null && treeUI.getETag() !== jqXHR.getResponseHeader('etag')) {
+            const etag = treeUI.getETag();
+
+            if (etag !== null && etag !== jqXHR.getResponseHeader('ETag')) {
                 if (lastQueryUrl != null && lastQueryUrl == this.url) {
                     let prefix = entity.charAt(0).toUpperCase() + entity.substr(1);
-                    toastr.info(prefix + ' has changed');
+                    //toastr.info(prefix + ' has changed');
                 }
             }
 
-            treeUI.setETag(jqXHR.getResponseHeader('etag'));
+            treeUI.setETag(jqXHR.getResponseHeader('ETag'));
             treeUI.setLastQueryUrl(this.url);
         }
     }
@@ -402,7 +439,7 @@ class ModalForms {
                 label: "Cancel",
                 className: "btn btn-light pull-left",
                 callback: function () {
-                    console.log("just do something on close");
+                    //
                 }
             }],
             show: false,
@@ -534,7 +571,6 @@ class ModalForms {
 
             if (action != 'add') {
                 if (selectedId == 0 || selectedId == undefined) {
-                    console.log('crud 1.1', selectedId);
                     return false;
                 }
             }
@@ -551,7 +587,6 @@ class ModalForms {
             action = $('.bootbox.modal').find('form input[name="action"]').val();
             type = $('.bootbox.modal').find('form input[name="type"]').val();
             modal = $(this)
-            console.log(modal);
             closeButton = modal.find(".modal-header .close")[0].outerHTML;
             modal.find(".modal-header .close").remove();
             modal.find(".modal-header").append(closeButton);

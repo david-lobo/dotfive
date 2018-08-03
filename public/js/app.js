@@ -13736,7 +13736,7 @@ var App = function () {
             category: "/d5-api/categories",
             category_all: "/d5-api/categories/all",
             item: "/d5-api/items"
-        }, this.modal, this.forms;
+        }, this.modal, this.forms, this.etags = {};
     }
 
     _createClass(App, [{
@@ -13781,6 +13781,48 @@ var App = function () {
                 headers: {
                     'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
                 }
+            });
+
+            $(document).ajaxComplete(function (ev, jqXHR, settings) {
+                //$.ajax.mostRecentCall = jqXHR;
+                console.log('resp', jqXHR.getResponseHeader('ETag'));
+                var etag = jqXHR.getResponseHeader('ETag');
+                var prefix = '';
+                var type = void 0;
+
+                if (settings.type === 'GET') {
+                    if (settings.url.includes('categories')) {
+                        prefix = 'Category';
+                        type = prefix.toLowerCase();
+                    } else if (settings.url.includes('items')) {
+                        prefix = 'Item';
+                        type = prefix.toLowerCase();
+                    }
+
+                    if (!app.etags.hasOwnProperty(prefix)) {
+                        app.etags[prefix] = {};
+                    }
+
+                    if (app.etags[prefix].hasOwnProperty(settings.url)) {
+                        if (app.etags[prefix][settings.url] !== null && etag !== null) {
+                            if (app.etags[prefix][settings.url] !== etag) {
+                                if (!settings.url.includes('all')) {
+
+                                    if (prefix !== '') {
+
+                                        console.log('toastr', app.etags[prefix][settings.url], etag);
+                                        __WEBPACK_IMPORTED_MODULE_4_toastr___default.a.info(prefix + ' has changed');
+                                        app.etags[prefix] = {};
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    app.etags[prefix][settings.url] = etag;
+                }
+
+                //console.log('etags', app.etags);
             });
 
             this.initTrees();
@@ -13947,13 +13989,11 @@ var TreeUI = function () {
     }, {
         key: 'reloadQuery',
         value: function reloadQuery() {
-            console.log('reload query 1');
             return {};
         }
     }, {
         key: 'reload',
         value: function reload() {
-            console.log('reload 1');
             var query = this.reloadQuery();
             this.tree.reload(query);
         }
@@ -13979,14 +14019,16 @@ var TreeUI = function () {
                     }
                 }
                 var lastQueryUrl = treeUI.getLastQueryUrl();
-                if (treeUI.getETag() !== null && treeUI.getETag() !== jqXHR.getResponseHeader('etag')) {
+                var etag = treeUI.getETag();
+
+                if (etag !== null && etag !== jqXHR.getResponseHeader('ETag')) {
                     if (lastQueryUrl != null && lastQueryUrl == this.url) {
                         var prefix = entity.charAt(0).toUpperCase() + entity.substr(1);
-                        __WEBPACK_IMPORTED_MODULE_4_toastr___default.a.info(prefix + ' has changed');
+                        //toastr.info(prefix + ' has changed');
                     }
                 }
 
-                treeUI.setETag(jqXHR.getResponseHeader('etag'));
+                treeUI.setETag(jqXHR.getResponseHeader('ETag'));
                 treeUI.setLastQueryUrl(this.url);
             };
         }
@@ -14345,7 +14387,6 @@ var ModalForms = function () {
 
                 if (action != 'add') {
                     if (selectedId == 0 || selectedId == undefined) {
-                        console.log('crud 1.1', selectedId);
                         return false;
                     }
                 }
@@ -14373,7 +14414,6 @@ var ModalForms = function () {
                 action = $('.bootbox.modal').find('form input[name="action"]').val();
                 type = $('.bootbox.modal').find('form input[name="type"]').val();
                 modal = $(this);
-                console.log(modal);
                 closeButton = modal.find(".modal-header .close")[0].outerHTML;
                 modal.find(".modal-header .close").remove();
                 modal.find(".modal-header").append(closeButton);
@@ -37350,7 +37390,6 @@ var __WEBPACK_AMD_DEFINE_FACTORY__, __WEBPACK_AMD_DEFINE_ARRAY__, __WEBPACK_AMD_
  * Copyright 2014, 2018 gijgo.com
  * Released under the MIT license
  */
-
 var gj = {};
 
 gj.widget = function () {

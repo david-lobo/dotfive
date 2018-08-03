@@ -3,7 +3,7 @@
 @section('title', '| Users')
 
 @section('content')
-            <div id="app">
+            <div id="app" class="pb-5">
             <div class="row">
                 <div class="col-xs-12 col-md-7 categories">
                     <h3 class="my-3">Categories</h3>
