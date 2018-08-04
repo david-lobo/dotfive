@@ -8,6 +8,7 @@ import "jquery";
 require('./bootstrap');
 import Mustache from 'mustache';
 import 'gijgo/js/gijgo';
+import gj from 'gijgo/js/gijgo';
 import bootbox from 'bootbox';
 import toastr from 'toastr';
 require('bootstrap-select');
@@ -92,6 +93,7 @@ class App {
                                 if (prefix !== '') {
                                     toastr.info(prefix + ' has changed');
                                     app.etags[prefix] = {};
+                                    console.log(prefix + ' has changed', app.etags[prefix][settings.url], etag);
                                 }
                             }
                         }
@@ -171,6 +173,7 @@ class TreeUI {
         this.selectedEntity = null;
         this.ETag = null;
         this.lastQueryUrl = null;
+        this.expanded = {};
     }
 
     greet() {
@@ -202,6 +205,7 @@ class TreeUI {
             type: 'GET',
             url: this.url,
             complete: this.reloadCallback(this.entity),
+            error: this.errorCallback(this.entity),
         };
     }
 
@@ -236,6 +240,7 @@ class TreeUI {
 
         this.bindSelect();
         this.bindUnselect();
+        this.bindExpand();
     }
 
     reloadQuery() {
@@ -247,13 +252,22 @@ class TreeUI {
         this.tree.reload(query);
     }
 
+    errorCallback(entity) {
+        var $widget = this;
+        return function (response) {
+            if (response && response.statusText && response.statusText !== 'abort') {
+                toastr.error(response.statusText);
+            }
+        };
+    }
+
     reloadCallback(entity) {
         return function (jqXHR, textStatus) {
             let treeUI, tree, selectedId;
             treeUI = app.getTrees()[entity];
             tree = treeUI.getTree();
             selectedId = treeUI.getSelectedId();
-            tree.expandAll();
+            //tree.expandAll();
 
             if (selectedId && selectedId != 0) {
                 let node = tree.getNodeById(selectedId);
@@ -264,7 +278,18 @@ class TreeUI {
                     treeUI.setSelectedEntity(null);
                 }
             }
-            let lastQueryUrl = treeUI.getLastQueryUrl();
+
+            console.log('expanded', treeUI.expanded);
+
+            for (let key of Object.keys(treeUI.expanded)) {  
+              let mealName = treeUI.expanded[key];
+              // ... do something with mealName
+              console.log(key);
+              let node = tree.getNodeById(key);
+              tree.expand(node);
+            }
+
+            /*let lastQueryUrl = treeUI.getLastQueryUrl();
             const etag = treeUI.getETag();
 
             if (etag !== null && etag !== jqXHR.getResponseHeader('ETag')) {
@@ -275,7 +300,7 @@ class TreeUI {
             }
 
             treeUI.setETag(jqXHR.getResponseHeader('ETag'));
-            treeUI.setLastQueryUrl(this.url);
+            treeUI.setLastQueryUrl(this.url);*/
         }
     }
 
@@ -315,12 +340,44 @@ class TreeUI {
         }
     }
 
+    expandCallback(entity) {
+        return function (e, node, id) {
+            //console.log('expand', e, node, id);
+
+            let treeUI, tree;
+            treeUI = app.getTrees()[entity];
+            tree = treeUI.getTree();
+
+            treeUI.expanded[id] = true;
+        }
+    }
+
+    collapseCallback(entity) {
+        return function (e, node, id) {
+            //console.log('collapse', e, node, id);
+            
+            let treeUI, tree;
+            treeUI = app.getTrees()[entity];
+            tree = treeUI.getTree();
+
+            delete treeUI.expanded[id];
+        }
+    }
+
     bindSelect() {
         this.tree.on('select', this.selectCallback(this.entity));
     }
 
     bindUnselect() {
         this.tree.on('unselect', this.unselectCallback(this.entity));
+    }
+    
+    bindExpand() {
+        this.tree.on('expand', this.expandCallback(this.entity));
+    }
+
+    bindCollapse() {
+        this.tree.on('collapse', this.collapseCallback(this.entity));
     }
 }
 
