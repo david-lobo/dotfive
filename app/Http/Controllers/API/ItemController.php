@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\API;
 
 use Illuminate\Http\Response;
+use Illuminate\Support\Facades\Cache;
 use App\Category;
 use App\Item;
 use Illuminate\Http\Request;
@@ -19,7 +20,13 @@ class ItemController extends APIBaseController
         $input = $request->all();
 
         if (!isset($input['category']) || $input['category'] == 0) {
-            $items = Item::with('categories')->get();
+
+            $minutes = 10;
+            $cacheId = 'items';
+
+            $items = Cache::remember($cacheId, $minutes, function () {
+                return Item::with('categories')->get();
+            });
 
             return response($items->toArray(), Response::HTTP_OK);
         }
@@ -33,12 +40,20 @@ class ItemController extends APIBaseController
         }
 
         if (isset($input['category'])) {
-            $category = Category::where('id', '=', $input['category'])->firstOrFail();
-            $items = $category->items;
 
-            foreach ($items as $key => $value) {
-                $itemCategories = $value->categories;
-            }
+            $minutes = 10;
+            $cacheId = 'items_' . $input['category'];
+
+            $items = Cache::remember($cacheId, $minutes, function () use ($input) {
+
+                $category = Category::where('id', '=', $input['category'])->firstOrFail();
+                $items = $category->items;
+
+                foreach ($items as $key => $value) {
+                    $itemCategories = $value->categories;
+                }
+                return $items;
+            });
         }
 
         return response($items->jsonSerialize(), Response::HTTP_OK);
@@ -70,6 +85,8 @@ class ItemController extends APIBaseController
 
         $category = Category::find($input['category_ids']);
         $item->categories()->attach($category);
+
+        Cache::flush();
 
         return $this->sendResponse($item->toArray(), 'Item created successfully.');
     }
@@ -104,6 +121,8 @@ class ItemController extends APIBaseController
         $category = Category::find($input['category_ids']);
         $item->categories()->sync($category);
 
+        Cache::flush();
+
         return $this->sendResponse($item->toArray(), 'Item updated successfully.');
     }
 
@@ -117,6 +136,8 @@ class ItemController extends APIBaseController
     {
         $item = Item::findOrFail($id);
         $item->delete();
+        Cache::flush();
+
         return $this->sendResponse([], 'Item deleted successfully.');
     }
 }

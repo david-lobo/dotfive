@@ -4,6 +4,7 @@ namespace App\Http\Controllers\API;
 
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
+use Illuminate\Support\Facades\Cache;
 use App\Http\Requests;
 use App\Category;
 use App\Item;
@@ -17,13 +18,25 @@ class CategoryController extends APIBaseController
      */
     public function index()
     {
-        $category = Category::where('parent_id', '=', null)->with('childs')->get();
-        return response($category->jsonSerialize(), Response::HTTP_OK);
+        $minutes = 10;
+        $cacheId = 'categories';
+
+        $categories = Cache::remember($cacheId, $minutes, function () {
+            return Category::where('parent_id', '=', null)->with('childs')->get();
+        });
+        $categories = is_null($categories) ? [] : $categories;
+        return response($categories->jsonSerialize(), Response::HTTP_OK);
     }
 
     public function all()
     {
-        $categories = Category::all();
+        $minutes = 10;
+        $cacheId = 'categories_all';
+
+        $categories = Cache::remember($cacheId, $minutes, function () {
+            return Category::all();
+        });
+
         return response($categories->jsonSerialize(), Response::HTTP_OK);
     }
 
@@ -59,6 +72,8 @@ class CategoryController extends APIBaseController
 
         $category->save();
 
+        Cache::flush();
+
         return $this->sendResponse($category->toArray(), 'Post created successfully.');
     }
 
@@ -86,12 +101,14 @@ class CategoryController extends APIBaseController
         $category->title = $input['title'];
         $category->alias = str_slug($input['title']);
 
-        if ($input['parent_id']) {
+        if (isset($input['parent_id'])) {
             $parent = Category::where('id', '=', $input['parent_id'])-> firstOrFail();
             $category->parent_id = $parent->id;
         }
 
         $category->save();
+
+        Cache::flush();
 
         return $this->sendResponse($category->toArray(), 'Category updated successfully.');
     }
@@ -106,6 +123,9 @@ class CategoryController extends APIBaseController
     {
         $category = Category::findOrFail($id);
         $category->delete();
+
+        Cache::flush();
+
         return $this->sendResponse([], 'Category deleted successfully.');
     }
 }
